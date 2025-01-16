@@ -1,14 +1,15 @@
-
-for(ds in dataset_names){
-  for(object_name in model_names){
-    
-  }
-}
+# 
+# for(ds in dataset_names){
+#   for(object_name in model_names){
+#     
+#   }
+# }
 
 find_lowest_rmse <- function(path_list, 
                              dataset_names,
                              model_names = list(),
-                             show_equal_results = FALSE){
+                             show_equal_results = FALSE,
+                             long_format = TRUE){
   
   if(length(path_list) != length(model_names)){
     warning("No names for models")
@@ -36,14 +37,11 @@ find_lowest_rmse <- function(path_list,
     for(object_name in model_names){
       pp_fitted_models[[object_name]] <- get(paste0("rmse_", object_name))[[ds]][,"ID"]
     }
-    print(c(ds,lapply(pp_fitted_models, length)))
-    
     pp_all_models_fitted[[ds]] <- Reduce(intersect ,pp_fitted_models )
   }
   
   lowest_rmse_list <- list()
   for(ds in dataset_names){
-    print(ds)
     for(object_name in model_names){
       assign(paste0("mean_rmse_", object_name), 
              get(paste0("rmse_", object_name))[[ds]]  %>%
@@ -55,30 +53,70 @@ find_lowest_rmse <- function(path_list,
              ) 
     }
     if(show_equal_results){
+      lowest_rmse_list[[ds]] <- mget(paste0("mean_rmse_", model_names)) %>%
+        purrr::reduce(inner_join, by = "ID") %>%
+        mutate(
+          rmse_values = list(c_across(-ID)),
+          unique_rmse = length(unique(rmse_values)),
+          lowest_rmse = if_else(unique_rmse == 1, NA_integer_, which.min(rmse_values)),
+          is_tie = unique_rmse < length(model_names) &
+            unique_rmse > 1
+        ) %>%
+        mutate(lowest_rmse_factor = case_when(is.na(lowest_rmse) ~ "all_equal", TRUE ~ model_names[lowest_rmse])) %>%
+        mutate(lowest_rmse_factor = factor(lowest_rmse_factor, levels = c(model_names, "all_equal"))) %>%
+        ungroup() %>%
+        count(lowest_rmse_factor) %>%
+        complete(lowest_rmse_factor = factor(
+          c(model_names, "all_equal"),
+          levels = c(model_names, "all_equal")
+        ),
+        fill = list(n = 0)) %>%
+        mutate(dataset = ds, lowest_rmse_rate = n / sum(n))
       
     } else {
       lowest_rmse_list[[ds]] <- mget(paste0("mean_rmse_", model_names)) %>%
         purrr::reduce(inner_join, by = "ID")  %>%
-        mutate(ndistinct = n_distinct(c_across(!ID))) %>% 
-        filter(ndistinct == length(model_names)) %>% 
+        mutate(ndistinct = n_distinct(c_across(!ID))) %>%
+        filter(ndistinct == length(model_names)) %>%
         select(-ndistinct)  %>%
-        mutate(lowest_rmse_factor = factor(which.min(c_across(!ID)), 
-                                           levels = 1:length(model_names),
-                                           labels = model_names)) %>%
+        mutate(lowest_rmse_factor = factor(
+          which.min(c_across(!ID)),
+          levels = 1:length(model_names),
+          labels = model_names
+        )) %>%
         ungroup() %>%
         count(lowest_rmse_factor) %>%
-        complete(lowest_rmse_factor = factor(model_names, levels = model_names), 
-                 fill = list(n = 0)) %>%
+        complete(
+          lowest_rmse_factor = factor(model_names, levels = model_names),
+          fill = list(n = 0)
+        ) %>%
         mutate(dataset = rep(ds, n_distinct(lowest_rmse_factor))) %>%
-        mutate(lowest_rmse_rate = n/sum(n)) 
+        mutate(lowest_rmse_rate = n / sum(n)) 
       
     }
   }
-  return(do.call("rbind", lowest_rmse_list))
+  if(long_format) {
+    return(do.call("rbind", lowest_rmse_list))
+  } else {
+    do.call("rbind", lowest_rmse_list) %>%
+      select(!n) %>%
+      pivot_wider(names_from = dataset, values_from = lowest_rmse_rate) %>%
+      return()
+  }
 }
 
 
 
+
+
+ds <- dataset_names[3]
+
+path_list <- list("Output/N1_Results/Rescaled_results/VAR_kalman_filter_RMSE/",
+                  "Output/N1_Results/Rescaled_results/VAR_listwise_deletion_RMSE/")
+
+model_names <- c("kalman_filter", "listwise_deletion")
+
+show_equal_results = TRUE
 
 path_list = list("Output/N1_Results/Rescaled_results/HMM_kalman_filter_results/RMSE/",
                  "Output/N1_Results/Rescaled_results/HMM_no_update_results/RMSE/",

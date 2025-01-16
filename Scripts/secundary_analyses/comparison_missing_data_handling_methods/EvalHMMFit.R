@@ -223,7 +223,7 @@ ggplot(AllNtries_long_sOD, aes(x = n, y = tries)) +
   geom_point(size = 1)  + 
   facet_wrap(~Nstate)
 
-
+?reshape
 #Create 4 plots for average number of tries against the number of observations 
 AllNtries_long_sOD %>%
   group_by(n, Nstate) %>%
