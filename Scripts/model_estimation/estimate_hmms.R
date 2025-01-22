@@ -1,11 +1,5 @@
 
-install.packages(setdiff(c("tidyverse", "depmixS4", "hmmr", "stats", "gtools", "parallel"), rownames(installed.packages())))  
-library(tidyverse)
 #library(depmixS4)
-source("Scripts/worker_functions/createTimeSeriesSplitForDepmix.R")
-source("Scripts/worker_functions/createObjectHMMPrediction.R")
-source("Scripts/worker_functions/HMMpredict.R")
-source("Scripts/worker_functions/kalmanFilter.R")
 
 
 depmix_wrapper_pp_level  <- function(input){

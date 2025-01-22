@@ -1,10 +1,5 @@
 
 
-#Install required packages 
-
-install.packages(setdiff(c("tidyverse", "haven", "readxl", "rlist"), rownames(installed.packages())))  
-
-library(tidyverse)
 
 f <- list.files("Scripts/data_processing/")
 

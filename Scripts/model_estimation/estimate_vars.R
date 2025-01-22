@@ -1,6 +1,3 @@
-install.packages(setdiff(c("tidyverse", "mgm", "vars", "stats", "imputeTS", "Metrics"), rownames(installed.packages())))  
-library(tidyverse)
-source("Scripts/N=1_pipeline/WorkerFunctions/kalmanFilter.R")
 
 addNight <- function(x){
   emptyRow <- rep(NA,ncol(x))

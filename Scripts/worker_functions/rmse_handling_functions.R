@@ -39,7 +39,7 @@ find_lowest_rmse <- function(path_list,
                              dataset_names,
                              model_names = list(),
                              show_equal_results = FALSE,
-                             long_format = TRUE){
+                             format_output = "long"){
   
   if(length(path_list) != length(model_names)){
     warning("No names for models")
@@ -57,6 +57,7 @@ find_lowest_rmse <- function(path_list,
   
   lowest_rmse_list <- list()
   for(ds in dataset_names){
+    if(length(pp_all_models_fitted[[ds]]) < 1) next
     for(object_name in model_names){
       assign(paste0("mean_rmse_", object_name), 
              get(paste0("rmse_", object_name))[[ds]]  %>%
@@ -110,14 +111,19 @@ find_lowest_rmse <- function(path_list,
       
     }
   }
-  if(long_format) {
+  if(format_output == "long"){
     return(do.call("rbind", lowest_rmse_list))
-  } else {
+  } else if(format_output == "matrix"){
     do.call("rbind", lowest_rmse_list) %>%
       select(!n) %>%
-      pivot_wider(names_from = dataset, values_from = lowest_rmse_rate) %>%
+      pivot_wider(names_from = dataset, values_from = lowest_rmse_rate)  %>% 
+      column_to_rownames("lowest_rmse_factor") %>%
+      as.matrix() %>%
       return()
+  } else {
+    lowest_rmse_list
   }
+
 }
 
 
@@ -186,7 +192,7 @@ calc_delta_rmse <- function(path_list,
 # model_names <- c("Kalman", "no_upadata", "sep_series")
 # 
 # 
-# dataset_names <-gsub("RMSE_|.csv", "", list.files("Output/N1_Results/Rescaled_results/HMM_kalman_filter_results/RMSE/"))
+# dataset_names <- gsub("RMSE_|.csv", "", list.files("Output/N1_Results/Rescaled_results/HMM_kalman_filter_results/RMSE/"))
 # 
 
 
