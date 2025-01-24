@@ -11,4 +11,11 @@ clean_dataset_names <- function(dataset_names){
 }
 
 
+clean_model_names <- function(model_names){
+  model_names %>%
+    gsub(pattern = "_", replacement = " ") %>% 
+    gsub(pattern = "all equal", replacement = "Equal RMSE") %>%
+    gsub(pattern = "\\b(\\w)", replacement = "\\U\\1", perl = TRUE)
+}
+
 

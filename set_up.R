@@ -12,7 +12,8 @@ install.packages(setdiff(c("depmixS4",
                            "rlist",
                            "stats", 
                            "tidyverse",
-                           "vars"
+                           "vars",
+                           "wesanderson"
                            ), rownames(installed.packages())))  
 library(tidyverse)
 
@@ -22,5 +23,7 @@ for(f in list.files("Scripts/worker_functions/")){
 }
 
 
+
+standard_figure_with <- 5.7
 
 
