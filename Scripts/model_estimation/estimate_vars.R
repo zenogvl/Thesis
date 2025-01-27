@@ -1,5 +1,17 @@
 
-addNight <- function(x){
+# 
+# data <- read.csv("Data/CleanRescaled/Rescaled_Kroencke_2020.csv")
+# variables <- variables_list$Kroencke_2020
+# oos_validation_method = c("percentage", "number")[1]
+# oos_validation_size = 0.2
+# study_name = ds
+# output_location = ""
+# return_results = TRUE
+# min_sample_size = 20
+# na_handling_method = c("listwise_delition", "kalman_filter")[2]
+
+
+add_night <- function(x){
   emptyRow <- rep(NA,ncol(x))
   i <- 1
   while(i < nrow(x)){
@@ -8,18 +20,154 @@ addNight <- function(x){
       i <- i + 1
       x[i, which(colnames(x) == "ID")] <- x$ID[i - 1]
     }
+    
     i <- i + 1
   }
   x
 }
 
+fit_var_models <- function(data, # data of a single study
+                           variables, #vector with variable names 
+                           oos_validation_method = c("percentage", "number"), #Use a percentage or a specific value to create test data for out of sample validataion 
+                           oos_validation_size, #The percentage of data or number of observation for the test dataset. 
+                           study_name,
+                           output_location,
+                           return_results = TRUE,
+                           min_sample_size = 20,
+                           na_handling_method = c("listwise_delition", "kalman_filter")
+) {
+  
+  ID_enough_data <- data %>%
+    na.omit() %>%
+    count(ID) %>%
+    filter(n > min_sample_size ) %>%
+    pull(ID)
+  data <- data[data$ID %in% ID_enough_data,]
+  
+  if(na_handling_method == "kalman_filter") {
+    for(pp in unique(data$ID)){
+      data[data$ID == pp, variables] <- kalman_filter(data[data$ID == pp, variables]) 
+    }
+  }
+  
+  if("beep" %in% colnames(data)){
+    data <- data %>%  
+      add_night() %>% #add a empty row after each day 
+      mutate(across(all_of(variables), ~lag(.), .names =  "{.col}_lag"))  #Create a lag 
+  } else {
+    data <- data %>%  
+      mutate(across(all_of(variables), ~lag(.), .names =  "{.col}_lag"))  #Create a lag 
+    
+  }
+  
+  pp <- unique(data$ID)[1]
+  #Create output 
+  n <- length(unique(data$ID))
+  results <- as.data.frame(matrix(NA, nrow = n, ncol = length(variables) + 1))
+  colnames(results) <- c("ID", variables)
+  results$ID <- unique(data$ID)
+  for(pp in unique(data$ID)){
+    #print(pp)
+    x <- data[data$ID == pp,]
+    #Remove all the rows with missing values 
+    x <- na.omit(x)
+    
+    if(nrow(x) < min_sample_size) next #Remove pp with less than 10 observations 
+    
+    #Split the data in train and test data set
+    if(oos_validation_method == "percentage"){
+      if(!(oos_validation_size > 0 & oos_validation_size < 1)){
+        stop("for method percentage, oosValidationSize should be between 0 and 1")
+      } else {
+        split_index <- nrow(x) - round(nrow(x) * oos_validation_size, 0)
+        x_train <- x[1:(split_index-1),]
+        x_test <- x[split_index:nrow(x),]
+      }
+    } else if (oos_validation_method == "number"){
+      if(!(oos_validation_size > 1 & is.integer(oos_validation_size))){
+        stop("for method number, oosValidationSize should be an integer")
+      } else {
+        x_train <- x[1:(oos_validation_size-1),]
+        x_test <- x[oos_validation_size:nrow(x),]
+      }
+    }
+    
+    
+    #Create a fromula where all the lagged variables are the predictors 
+    ff_predictors <-  paste0(variables, "_lag", collapse = "+")
+    
+    predictions <-  as.data.frame(matrix(NA, nrow = nrow(x_test), ncol = length(variables)))
+    colnames(predictions) <- c(variables)
+    
+    v <- variables[1]
+    for(v in variables){
+      ff <- paste0(v,  "~", ff_predictors)
+      #Fit the VAR model on the training data
+      fit <- stats::lm(ff , x_train)
+      
+      #Predict the values 
+      pred <- stats::predict(fit, x_test)
+      RMSE <- sqrt(1 / nrow(x_test) *
+                     sum((x_test[, v] - pred)^2))
+      
+      results[results$ID == pp, v] <- RMSE
+    }
+    
+  }
+  
+  write.csv(results, paste0(output_location, "RMSE_", study_name, ".csv"))
+  if(return_results) {
+    results
+  }
+}
 
 
-x <- data
-data <- read.csv("Data/Clean/Bringmann_2013.csv", header = T)
-variables <- c("Sad", "Angry", "Anxiety", "Depressed", "Stressed", "Happy", "Relexed", "Excited")
-oosValidationSize <- .2
-oosValidationMethods <- "percentage"
+for(ds in dataset_names_all){
+  print(ds)
+  fit_var_models(data = read.csv(paste0("Data/CleanRescaled/Rescaled_", ds, ".csv")),
+                 variables = variables_list[[ds]],
+                 oos_validation_method = "percentage", 
+                 oos_validation_size = 0.2, 
+                 study_name = ds,
+                 output_location = "Output/N1_Results/Rescaled_results/VAR_kalman_filter_RMSE/",
+                 return_results = FALSE,
+                 min_sample_size = 20,
+                 na_handling_method = "kalman_filter"
+                 )
+}
+
+
+
+for(ds in dataset_names_all){
+  print(ds)
+  fit_var_models(data = read.csv(paste0("Data/CleanRescaled/Rescaled_", ds, ".csv")),
+                 variables = variables_list[[ds]],
+                 oos_validation_method = "percentage", 
+                 oos_validation_size = 0.2, 
+                 study_name = ds,
+                 output_location = "Output/N1_Results/Rescaled_results/VAR_listwise_deletion_RMSE/",
+                 return_results = FALSE,
+                 min_sample_size = 20,
+                 na_handling_method = "listwise_delition"
+  )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -54,9 +202,6 @@ varN1 <- function(data, # data of a single study
   }
   
   
-  $data[, variables] <- kalmanFilter(data[,variables]) 
-  
-
   
   if("beep" %in% colnames(data)){
     data <- data %>%  
@@ -151,37 +296,13 @@ varN1 <- function(data, # data of a single study
     
   }
   
-write.csv(results, paste0(outputLocation, "RMSE_", studyName, ".csv"))
-  if(returnResults) {
-    results
-  }
- 
+
 }
-results[1,variables]
-
-rowMeans(results[,variables]) > 100 
-
-results$meanRMSE <- rowMeans(results[,variables])
-results$strpd <- strangepred
-
-results %>% 
-  filter(meanRMSE > .5)
-
-results$Lively %>% round(5)
-results[,variables] %>%
-  apply(2,round,3)
 
 
-(a <- base::round(results,8))
 
-results[58,]
 
-variables_list <- readRDS("Data/variables_list.rds")
-f <- list.files("Data/Clean/")
-ds_names <- gsub(".csv", "", f)
-res_list <- list()
 
-ds <- ds_names[33]
 
 for(ds in ds_names){
   print(ds)
@@ -210,49 +331,3 @@ for(ds in ds_names){
         returnResults = FALSE
   )
 }
-ds <- f
-
-
-varN1(data = read.csv(paste0("Data/Clean/", "Koval_2015", ".csv")), 
-      variables = variables_list[["Koval_2015"]], 
-      oosValidationMethods = "percentage", 
-      oosValidationSize = 0.2, 
-      studyName = ds, 
-      outputLocation = "Output/N1_VAR_Results/",
-      minDataPoints = 20,
-      naMethod = "listwiseDelition"
-)
-
-data = read.csv(paste0("Data/Clean/", ds, ".csv"))
-variables = variables_list[[ds]]
-
-outputLocation <- "Output/N1_VAR_Results/"
-  
-pp <- unique(data$ID)[1]
-
-data[data$ID == pp,] %>% nrow()
-
-
-data[data$ID == pp, variables] <- imputeTS::na_kalman(data[data$ID == pp, variables]) 
-
-?stats::KalmanSmooth
-?stats::StructTS
-
-
-data$missing <- data %>%
-  is.na %>%
-  apply(1,any) 
-
-
-data$Sad %>% max(na.rm = T)
-
-ds <- dataset
-data = read.csv(paste0("Data/CleanRescaled/Rescaled_", ds, ".csv"))
-      variables = variables_list[[ds]] 
-      oosValidationMethods = "percentage" 
-      oosValidationSize = 0.2
-      studyName = ds 
-      outputLocation = "Output/N1_VAR_Results/"
-      minDataPoints = 20
-      naMethod = "kalmanFilter"
-

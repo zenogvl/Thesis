@@ -18,18 +18,19 @@ palette <-   wesanderson::wes_palette("Darjeeling1", 3)
 
 
 
-pdf(file = "Output/Figures/var_methods_lowest_rmse5.pdf", 
-    width = 5.7,
+pdf(file = "Output/Figures/var_methods_lowest_rmse.pdf", 
+    width = standard_figure_with,
     height = 5)
 
 lowest_rmse_percentage_barplot(var_lowest_rmse, 
                                palette, 
                                split = 2, 
                                margin_bottom_graphs = 1.5, 
-                               margin_dataset_labels = 8,
-                               dataset_labels_position = -1.2,
+                               margin_dataset_labels = 6,
+                               dataset_labels_position = -3.5,
                                labels_width = 1,
-                               barplot_width = 1.3)
+                               barplot_width = 1.3,
+                               vline_colour = "black")
 
 dev.off()
 
@@ -42,7 +43,8 @@ lowest_rmse_percentage_barplot <- function(matrix_input,
                                            margin_dataset_labels = 8, 
                                            dataset_labels_position = -1, 
                                            labels_width = 1,
-                                           barplot_width = 3){
+                                           barplot_width = 3, 
+                                           vline_colour = "red"){
   
   
   
@@ -73,7 +75,7 @@ lowest_rmse_percentage_barplot <- function(matrix_input,
   axis(2, at = (1:n_bars_1 -.5), labels = clean_labels, 
        las = 1, tick = FALSE, line = dataset_labels_position)
   
-  par(mar = c(margin_bottom_graphs,0,0,0), xaxs = "i", yaxs = "i")
+  par(mar = c(margin_bottom_graphs,0.1,0,0), xaxs = "i", yaxs = "i")
   plot.new()
   plot.window(xlim = c(0,1), ylim = c(0,n_bars_1))
   axis(1, at = seq(0, 1, length.out = 5), labels = paste0(seq(0, 100, length.out = 5), "%"))
@@ -87,6 +89,7 @@ lowest_rmse_percentage_barplot <- function(matrix_input,
           col = palette, 
           add = TRUE
   )
+  abline(v=.5, col = vline_colour)
   
   if(split == 2){
     matrix_input_2 <- matrix_input[,n_bars:as.integer(n_bars/2)]
@@ -99,7 +102,7 @@ lowest_rmse_percentage_barplot <- function(matrix_input,
     axis(2, at = (1:n_bars_2 -.5), labels = clean_labels, 
          las = 1, tick = FALSE, line = dataset_labels_position)
     
-    par(mar = c(margin_bottom_graphs,0,0,0), xaxs = "i", yaxs = "i")
+    par(mar = c(margin_bottom_graphs,0.1,0,0), xaxs = "i", yaxs = "i")
     plot.new()
     plot.window(xlim = c(0,1), ylim = c(0,n_bars_2))
     axis(1, at = seq(0, 1, length.out = 5), labels = paste0(seq(0, 100, length.out = 5), "%"))
@@ -113,6 +116,7 @@ lowest_rmse_percentage_barplot <- function(matrix_input,
             col =palette, 
             add = TRUE
     )
+    abline(v=.5, col = vline_colour)
   }
   par(mar = c(0,0,0,0))
   plot.new()
@@ -160,6 +164,6 @@ wesanderson::wes_palette(palette_names[18])
 wesanderson::wes_palette(palette_names[19])
 wesanderson::wes_palette(palette_names[20])
 
+wesanderson::wes_palette(palette_names[22])
 
-
-length(palette_names)
+graphics.off() 

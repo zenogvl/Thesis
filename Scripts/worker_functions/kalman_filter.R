@@ -1,5 +1,5 @@
 
-kalmanFilter <- function(x){
+kalman_filter <- function(x){
   #Stop if there are no missing values 
   if(!any(is.na(x))) return(x)
   
