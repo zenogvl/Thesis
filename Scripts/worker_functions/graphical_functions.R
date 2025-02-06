@@ -1,6 +1,5 @@
 
 
-
 clean_dataset_names <- function(dataset_names){
   dataset_names %>%
     gsub(pattern = "_", replacement = " ") %>%
@@ -112,6 +111,68 @@ lowest_rmse_percentage_barplot <- function(matrix_input,
          fill = palette, 
          horiz = TRUE, inset = c(0, 0), bty = "n")
   
+  
+}
+
+
+percentage_models_barplot <- function(
+    percantages_matrix,
+    n_datasets, 
+    n_models,
+    palette, 
+    margin_bottom_graphs = 1.5,
+    margin_dataset_labels = 8,
+    dataset_labels_position = -1,
+    labels_width = 1.4,
+    barplot_width = 1,
+    split = 3
+) {
+  layout(matrix(c(1:(split*2),rep(split*2+1, split*2)), nrow = 2, byrow = TRUE), 
+         widths = rep(c(labels_width, barplot_width), split),
+         heights = c(12,1))
+  par(oma = c(1, 1, 1, 2)) 
+  
+  
+  for(i in 1:split){
+    input_selection <- percantages_matrix[,sort((1:n_datasets)[ntile(1:n_datasets,3) == i],decreasing = TRUE)] 
+    
+    clean_labels <- clean_dataset_names(colnames(input_selection))
+    max_n_datasets <- ntile(1:n_datasets,3)  %>%
+      table() %>% 
+      max()
+    n_datasets_selection <- ncol(input_selection)
+    par(mar = c(margin_bottom_graphs,margin_dataset_labels,0,0), xaxs = "i", yaxs = "i")
+    plot.new()
+    plot.window(xlim = c(0,0), ylim = c(0,max_n_datasets*n_models))
+    axis(2, 
+         at = seq((n_models + 1)/2, n_datasets_selection * n_models - (n_models - 1)/2, by = n_models), 
+         labels = clean_labels, 
+         las = 1, 
+         tick = FALSE, 
+         line = dataset_labels_position)
+    
+    par(mar = c(margin_bottom_graphs,0.1,0,0), xaxs = "i", yaxs = "i")
+    plot.new()
+    plot.window(xlim = c(0,100), ylim = c(0,max_n_datasets*n_models))
+    axis(1, at = seq(0, 100, length.out = 5), labels = paste0(seq(0, 100, length.out = 5), "%"))
+    barplot(input_selection, 
+            width = 1,
+            #space = 0,
+            horiz = TRUE,
+            beside = TRUE, 
+            axes = FALSE,
+            axisnames = FALSE,
+            col = palette, 
+            add = TRUE
+    )
+  }
+  
+  par(mar = c(0,0,0,0))
+  plot.new()
+  legend("bottom", 
+         legend = clean_model_names(row.names(input_selection)), 
+         fill = palette, 
+         horiz = TRUE, inset = c(0, 0), bty = "n")
   
 }
 

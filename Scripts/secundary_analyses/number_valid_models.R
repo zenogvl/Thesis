@@ -4,11 +4,6 @@ hmm_path <- "Output/N1_Results/Rescaled_results/HMM_kalman_filter_results/Ntries
 var_path <- "Output/N1_Results/Rescaled_results/VAR_kalman_filter_RMSE/"
 
 
-setdiff(dataset_names_all, dataset_names)
-
-
-ds <- dataset_names[36]
-
 percentage_valid_model_list <- list()
 for(ds in dataset_names){
   rmse_var <- read.csv(paste0(var_path, "RMSE_", ds,".csv")) %>%
@@ -33,39 +28,47 @@ percentage_valid_models <- do.call(rbind, percentage_valid_model_list) %>%
   arrange(desc(S2),desc(S3)) %>%
   select(-dataset) %>%
   t()
-percentage_valid_models 
 
 
-
-
-
-
-margin_bottom_graphs = 1.5
-margin_dataset_labels = 8
-dataset_labels_position = -1
-labels_width = 1.4
-barplot_width = 1
-split = 3
-n_datasets <- ncol(percentage_valid_models)
-
-
-
-
-palette <- wesanderson::wes_palette("Zissou1", 5)
-
-
-
-pdf(file = "Output/Figures/percentages_valid_models.pdf", 
+pdf(file = "Output/Figures/Appendix_C_percentages_valid_models.pdf", 
     width = standard_figure_with,
     height = 4)
+
+
+percentage_models_barplot(
+  percantages_matrix = percentage_valid_models,
+  n_datasets =  ncol(percentage_valid_models), 
+  n_models = 6,
+  palette = wesanderson::wes_palette("Zissou1", 5), 
+  margin_bottom_graphs = 1.5,
+  margin_dataset_labels = 8,
+  dataset_labels_position = -1,
+  labels_width = 1.4,
+  barplot_width = 1,
+  split = 3
+)
+
+
+dev.off()
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 layout(matrix(c(1:(split*2),rep(split*2+1, split*2)), nrow = 2, byrow = TRUE), 
        widths = rep(c(labels_width, barplot_width), split),
        heights = c(12,1))
 par(oma = c(1, 1, 1, 2)) 
-
-i <- 1
 
 for(i in 1:split){
 
@@ -106,14 +109,6 @@ legend("bottom",
        fill = palette, 
        horiz = TRUE, inset = c(0, 0), bty = "n")
 
-dev.off()
 
 
 
-
-38%/%3
-
-
-1:12 
-(12+1):(12*2)
-(12*2+1):(12*3)

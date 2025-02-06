@@ -1,96 +1,94 @@
 
-#library(depmixS4)
-
 
 depmix_wrapper_pp_level  <- function(input){
   x <- input$data
   ff <- input$ff
   variables <- input$variables
-  maxNumbStates <- input$maxNumbStates
+  max_numb_states <- input$max_numb_states
  
   #Split the dataset in train and test dataset 
-  if(input$oosValidationMethods == "percentage"){
-    if(!(input$oosValidationSize > 0 & input$oosValidationSize < 1)){
-      stop("for method percentage, oosValidationSize should be between 0 and 1")
+  if(input$oos_validation_methods == "percentage"){
+    if(!(input$oos_validation_size > 0 & input$oos_validation_size < 1)){
+      stop("for method percentage, oos_validation_size should be between 0 and 1")
     } else {
-      splitIndex <- nrow(x) - round(nrow(x) * input$oosValidationSize, 0)
-      x_train <- x[1:(splitIndex-1),]
-      x_test <- x[splitIndex:nrow(x),]
+      split_index <- nrow(x) - round(nrow(x) * input$oos_validation_size, 0)
+      x_train <- x[1:(split_index-1),]
+      x_test <- x[split_index:nrow(x),]
     }
-  } else if (input$oosValidationMethods == "number"){
-    if(!(input$oosValidationSize > 1 & is.integer(input$oosValidationSize))){
-      stop("for method number, oosValidationSize should be an integer")
+  } else if (input$oos_validation_methods == "number"){
+    if(!(input$oos_validation_size > 1 & is.integer(input$oos_validation_size))){
+      stop("for method number, oos_validation_size should be an integer")
     } else {
-      x_train <- x[1:(input$oosValidationSize-1),]
-      x_test <- x[input$oosValidationSize:nrow(x),]
+      x_train <- x[1:(input$oos_validation_size-1),]
+      x_test <- x[input$oos_validation_size:nrow(x),]
     }
   }
   
   #Get a vector that indicates how long all the seperate time series are 
-  obj_train <- createTSsplitHMM(x_train, variables=variables, method = input$createTSsplitMethod)
+  obj_train <- createTSsplitHMM(x_train, variables=variables, method = input$series_split_method)
   x_train <- obj_train$data
-  lengthTS <- obj_train$lengthTS
+  lenght_time_serie <- obj_train$lenght_time_serie
   
   
-  depmixObject <- vector("list", (maxNumbStates-1))
-  depmixFit <- vector("list", (maxNumbStates-1))
-  tries <- rep(NA, (maxNumbStates-1))
-  IC <- data.frame(nstate = 2:maxNumbStates,
-                   AIC = rep(NA, maxNumbStates-1),
-                   BIC = rep(NA, maxNumbStates-1))
-  for(s in 2:maxNumbStates){
+  depmix_object <- vector("list", (max_numb_states-1))
+  depmix_fit <- vector("list", (max_numb_states-1))
+  tries <- rep(NA, (max_numb_states-1))
+  IC <- data.frame(nstate = 2:max_numb_states,
+                   AIC = rep(NA, max_numb_states-1),
+                   BIC = rep(NA, max_numb_states-1))
+  for(s in 2:max_numb_states){
     counter <- 0
     #Repeat loop that continues until a converged model is found. 
     repeat{
       counter <- counter + 1
-      depmixObject[[s-1]] <-  depmixS4::depmix(ff, 
+      depmix_object[[s-1]] <-  depmixS4::depmix(ff, 
                                                data = x_train, 
                                                nstates = s, 
                                                family = rep(list(gaussian()),length(variables)),
-                                               ntimes = lengthTS)
-      invisible(capture.output(try(depmixFit[[s-1]] <- depmixS4::fit(depmixObject[[s-1]]), silent = TRUE))) #Fit model and continu even with an error. 
+                                               ntimes = lenght_time_serie)
+      invisible(capture.output(try(depmix_fit[[s-1]] <- depmixS4::fit(depmix_object[[s-1]]), silent = TRUE))) #Fit model and continu even with an error. 
       
       #If model is empty or did not converge, repeat, if converged, stop. 
-      if(is.null(depmixFit[[s-1]])){
-        if(counter == input$maxTries) break 
-      } else if(grepl("without convergence", depmixFit[[s-1]]@message)){
-        if(counter == input$maxTries) break 
+      if(is.null(depmix_fit[[s-1]])){
+        if(counter == input$max_estimation_tries) break 
+      } else if(grepl("without convergence", depmix_fit[[s-1]]@message)){
+        if(counter == input$max_estimation_tries) break 
       } else {
         break
       }
     }
-    if(counter < input$maxTries){
-      IC$AIC[s-1] <- AIC(depmixFit[[s-1]])
-      IC$BIC[s-1] <- BIC(depmixFit[[s-1]])
+    if(counter < input$max_estimation_tries){
+      IC$AIC[s-1] <- AIC(depmix_fit[[s-1]])
+      IC$BIC[s-1] <- BIC(depmix_fit[[s-1]])
     }
     tries[s-1] <- counter
 
   }
-  #depmixFit
+  #depmix_fit
   #only continues when at least one model is fitted 
   if(any(!is.na(IC[,2:3]))){
     #Select best model based on a IC
-    if(input$ICmethod == "AIC"){
-      useNstate <- IC$nstate[which.min(IC$AIC)]
-    } else if (input$ICmethod == "BIC"){
-      useNstate <- IC$nstate[which.min(IC$BIC)]
+    if(input$ic_method == "AIC"){
+      best_s_state <- IC$nstate[which.min(IC$AIC)]
+    } else if (input$ic_method == "BIC"){
+      best_s_state <- IC$nstate[which.min(IC$BIC)]
     }
     
     #Create the TS split for the the test data
     obj_test <- createTSsplitHMM(x_test, variables=variables, method = "both")
     x_test <- obj_test$data
-    lengthTS_test <- obj_test$lengthTS
+    lenght_time_serie_test <- obj_test$lenght_time_serie
    
-    predictObject <- createPredictObject(depmixFit[[useNstate-1]], dataNew = x_test, lengthTS = lengthTS_test)
+    predict_object <- createpredict_object(depmix_fit[[best_s_state-1]], dataNew = x_test, lenght_time_serie = lenght_time_serie_test)
     
     if(exists("posteriorPredict")) rm("posteriorPredict")
   
     #Get the most likley state sequance 
-    try(posteriorPredict <- depmixS4::viterbi(predictObject))
+    try(posteriorPredict <- depmixS4::viterbi(predict_object))
     if(exists("posteriorPredict")){
-      predictObject@posterior <- posteriorPredict
+      predict_object@posterior <- posteriorPredict
       
-      prediction <- HMMpredict(predictObject)
+      prediction <- HMMpredict(predict_object)
       #v <- variables[1]  ## Remove ##
       RMSE <- vector(mode = "numeric",length = length(variables))
       names(RMSE) <- variables
@@ -101,12 +99,12 @@ depmix_wrapper_pp_level  <- function(input){
         )
       }
       return(
-        list(depmixObjects = depmixObject,
-             depmixFit = depmixFit, 
+        list(depmix_objects = depmix_object,
+             depmix_fit = depmix_fit, 
              IC = IC,
-             nstateUsed = useNstate,
+             nstateUsed = best_s_state,
              posterior = posteriorPredict,
-             depmixPredictionObject = predictObject,
+             depmixPredictionObject = predict_object,
              RMSE = RMSE,
              Ntries = tries)
       )
@@ -118,42 +116,40 @@ depmix_wrapper_pp_level  <- function(input){
 
 fit_hmms <-  function(data, # data of a single study
                   variables, #vector with variable names 
-                  maxNumbStates, #The maximam number of states for the HMM to fit. 
-                  oosValidationMethods = c("percentage", "number"), #Use a percentage or a specific value to create test data for out of sample validataion 
-                  oosValidationSize, #The percentage of data or number of observation for the test dataset. 
+                  max_numb_states, #The maximam number of states for the HMM to fit. 
+                  oos_validation_methods = c("percentage", "number"), #Use a percentage or a specific value to create test data for out of sample validataion 
+                  oos_validation_size, #The percentage of data or number of observation for the test dataset. 
                   studyName,
                   outputLocation,
                   returnResults = TRUE,
-                  minDataPoints = 10,
+                  minimal_sample_size = 10,
                   multivar = c(TRUE, FALSE),
-                  ICmethod = c("AIC", "BIC"),
-                  maxTries = 100,
-                  createTSsplitMethod = c("both", "days", "missing"),
-                  naMethod = c("none", "kalmanFilter")
+                  ic_method = c("AIC", "BIC"),
+                  max_estimation_tries = 100,
+                  series_split_method = c("both", "days", "missing"),
+                  na_method = c("none", "kalman_filter")
 ) {
-  oosValidationMethods <- match.arg(oosValidationMethods)
+  oos_validation_methods <- match.arg(oos_validation_methods)
   #multivar <- match.arg(multivar)
-  ICmethod <- match.arg(ICmethod)
-  naMethod <- match.arg(naMethod)
-  #createTSsplitMethod <- mathc.arg(createTSsplitMethod)
+  ic_method <- match.arg(ic_method)
+  na_method <- match.arg(na_method)
+  #series_split_method <- mathc.arg(series_split_method)
 
   #Get the ID's of all the PP that have more than min data points
-  minDataID <- table(na.omit(data)$ID)[table(na.omit(data)$ID) > minDataPoints] %>% #Index the table for above this minimum
+  id_minimal_sample_size <- table(na.omit(data)$ID)[table(na.omit(data)$ID) > minimal_sample_size] %>% #Index the table for above this minimum
     names() %>% #Take the names of this vector to get the IDs
     as.integer() #Transfrom to numeric 
   
-  dataLowNRemoved <- data[data$ID %in% minDataID,]
+  data_small_sample_removed <- data[data$ID %in% id_minimal_sample_size,]
   
-  if(naMethod == "kalmanFilter") {
+  if(na_method == "kalman_filter") {
     for(pp in unique(data$ID)){
       #print(pp)
-      dataLowNRemoved[dataLowNRemoved$ID == pp, variables] <- kalmanFilter(dataLowNRemoved[dataLowNRemoved$ID == pp, variables]) 
+      data_small_sample_removed[data_small_sample_removed$ID == pp, variables] <- kalman_filter(data_small_sample_removed[data_small_sample_removed$ID == pp, variables]) 
     }
   }
   
-  #x <- dataLowNRemoved[dataLowNRemoved$ID == pp, variables]
-  
-  dataList <- split(dataLowNRemoved, dataLowNRemoved$ID)
+  data_list <- split(data_small_sample_removed, data_small_sample_removed$ID)
   
   #Create the formula list:
   ff <- list()
@@ -169,17 +165,17 @@ fit_hmms <-  function(data, # data of a single study
     }
   }
   
-  inputList <- list()
-  for(pp in names(dataList)){
-    inputList[[pp]] <-  list(data = dataList[[pp]],
+  input_list <- list()
+  for(pp in names(data_list)){
+    input_list[[pp]] <-  list(data = data_list[[pp]],
                              variables = variables,
                              ff = ff,
-                             oosValidationMethods = oosValidationMethods,
-                             oosValidationSize = oosValidationSize,
-                             maxNumbStates = maxNumbStates,
-                             maxTries = maxTries,
-                             ICmethod = ICmethod,
-                             createTSsplitMethod = createTSsplitMethod)
+                             oos_validation_methods = oos_validation_methods,
+                             oos_validation_size = oos_validation_size,
+                             max_numb_states = max_numb_states,
+                             max_estimation_tries = max_estimation_tries,
+                             ic_method = ic_method,
+                             series_split_method = series_split_method)
     
   }
   
@@ -187,7 +183,7 @@ fit_hmms <-  function(data, # data of a single study
   clus <- parallel::makeCluster(cores)
   parallel::clusterExport(clus, c("createTSsplitHMM", 
                                   "hmmN1pp", 
-                                  "createPredictObject",
+                                  "createpredict_object",
                                   "densManual",
                                   "predictManual", 
                                   "HMMpredict"))
@@ -195,24 +191,24 @@ fit_hmms <-  function(data, # data of a single study
     library(tidyverse)
     library(depmixS4)
   })
-  res <- parallel::parLapply(clus, inputList, depmix_wrapper_pp_level)
+  res <- parallel::parLapply(clus, input_list, depmix_wrapper_pp_level)
   parallel::stopCluster(clus)
  
 
   #Create output matrix RMSE
   RMSE <- matrix(NA, length(res), (length(variables)+1))
   colnames(RMSE) <- c("ID", variables)
-  RMSE[,1] <- as.integer(names(dataList))
+  RMSE[,1] <- as.integer(names(data_list))
   
   #Create output matrix for number of tries 
-  Ntries <- matrix(NA, length(res), (maxNumbStates))
-  colnames(Ntries) <- c("ID", 2:maxNumbStates)
-  Ntries[,1] <- as.integer(names(dataList))
+  Ntries <- matrix(NA, length(res), (max_numb_states))
+  colnames(Ntries) <- c("ID", 2:max_numb_states)
+  Ntries[,1] <- as.integer(names(data_list))
   
   #Create output matrix for number of states
   nstateUsed <- matrix(NA, length(res), 2)
   colnames(nstateUsed) <- c("ID", "nstate")
-  nstateUsed[,1] <- as.integer(names(dataList))
+  nstateUsed[,1] <- as.integer(names(data_list))
   
   
   if(length(res)>0){
@@ -271,18 +267,18 @@ for(ds in ds_names[36:37]){
   startTime <- Sys.time()
   fit_hmms(data = read.csv(paste0("Data/CleanRescaled/", "Rescaled_", ds, ".csv")), 
            variables = variables_list[[ds]],
-           maxNumbStates = 5, 
-           oosValidationMethods = "percentage", #Use a percentage or a specific value to create test data for out of sample validataion 
-           oosValidationSize = .2, #The percentage of data or number of observation for the test dataset. 
+           max_numb_states = 5, 
+           oos_validation_methods = "percentage", #Use a percentage or a specific value to create test data for out of sample validataion 
+           oos_validation_size = .2, #The percentage of data or number of observation for the test dataset. 
            studyName = ds,
            outputLocation = "Output/N1_Results/RescaledResults/HMM_kalman_filter_results/",
            returnResults = FALSE,
-           minDataPoints = 20,
+           minimal_sample_size = 20,
            multivar = FALSE,
-           ICmethod = "AIC",
-           maxTries = 100,
-           createTSsplitMethod = "days", 
-           naMethod = "kalmanFilter"
+           ic_method = "AIC",
+           max_estimation_tries = 100,
+           series_split_method = "days", 
+           na_method = "kalman_filter"
   )
   endTime  <- Sys.time()
   timeKF[timeKF$ds == ds, 2] <- difftime(endTime, startTime, units = "mins")
@@ -297,17 +293,17 @@ for(ds in ds_names){
   startTime <- Sys.time()
   fit_hmms(data = read.csv(paste0("Data/CleanRescaled/", "Rescaled_", ds, ".csv")), 
            variables = variables_list[[ds]],
-           maxNumbStates = 5, 
-           oosValidationMethods = "percentage", #Use a percentage or a specific value to create test data for out of sample validataion 
-           oosValidationSize = .2, #The percentage of data or number of observation for the test dataset. 
+           max_numb_states = 5, 
+           oos_validation_methods = "percentage", #Use a percentage or a specific value to create test data for out of sample validataion 
+           oos_validation_size = .2, #The percentage of data or number of observation for the test dataset. 
            studyName = ds,
            outputLocation = "Output/N1_Results/RescaledResults/HMM_onlyday_split_results/",
            returnResults = FALSE,
-           minDataPoints = 20,
+           minimal_sample_size = 20,
            multivar = FALSE,
-           ICmethod = "AIC",
-           maxTries = 100,
-           createTSsplitMethod = "days"
+           ic_method = "AIC",
+           max_estimation_tries = 100,
+           series_split_method = "days"
   )
   endTime  <- Sys.time()
   timeOD[timeOD$ds == ds, 2] <- difftime(endTime, startTime, units = "mins")
@@ -324,17 +320,17 @@ for(ds in ds_names){
   startTime <- Sys.time()
   fit_hmms(data = read.csv(paste0("Data/CleanRescaled/", "Rescaled_", ds, ".csv")), 
            variables = variables_list[[ds]],
-           maxNumbStates = 5, 
-           oosValidationMethods = "percentage", #Use a percentage or a specific value to create test data for out of sample validataion 
-           oosValidationSize = .2, #The percentage of data or number of observation for the test dataset. 
+           max_numb_states = 5, 
+           oos_validation_methods = "percentage", #Use a percentage or a specific value to create test data for out of sample validataion 
+           oos_validation_size = .2, #The percentage of data or number of observation for the test dataset. 
            studyName = ds,
            outputLocation = "Output/N1_Results/RescaledResults/HMM_daymissing_split_results/",
            returnResults = FALSE,
-           minDataPoints = 20,
+           minimal_sample_size = 20,
            multivar = FALSE,
-           ICmethod = "AIC",
-           maxTries = 100,
-           createTSsplitMethod = "both"
+           ic_method = "AIC",
+           max_estimation_tries = 100,
+           series_split_method = "both"
   )
   endTime  <- Sys.time()
   timeDM[timeDM$ds == ds, 2] <- difftime(endTime, startTime, units = "mins")
@@ -346,14 +342,14 @@ saveRDS(timeDM, "Output/HMMfitTimes/timeDM.rds")
 
 data = read.csv(paste0("Data/CleanRescaled/Rescaled_", ds, ".csv"))
 variables = variables_list[[ds]]
-maxNumbStates = 5
-oosValidationMethods = "percentage" #Use a percentage or a specific value to create test data for out of sample validataion 
-oosValidationSize = .2 #The percentage of data or number of observation for the test dataset. 
+max_numb_states = 5
+oos_validation_methods = "percentage" #Use a percentage or a specific value to create test data for out of sample validataion 
+oos_validation_size = .2 #The percentage of data or number of observation for the test dataset. 
 studyName = ds
 outputLocation = "Output/N1_HMM_Results_V2/"
 returnResults = TRUE
-minDataPoints = 20
+minimal_sample_size = 20
 multivar = F
-ICmethod = "AIC"
-maxTries = 100
-createTSsplitMethod = "both"
+ic_method = "AIC"
+max_estimation_tries = 100
+series_split_method = "both"
